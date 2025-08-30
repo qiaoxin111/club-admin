@@ -5,7 +5,7 @@ services:
     build: ./backend
     container_name: club-admin-backend
     ports:
-      - "3001:3001"
+      - "4000:4000"
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/database.db:/app/database.db
@@ -19,7 +19,7 @@ services:
     build: ./frontend
     container_name: club-admin-frontend
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - backend
     networks:

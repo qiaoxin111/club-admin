@@ -52,12 +52,26 @@ function App() {
     fetchMeta();
   };
 
+  const handleUploadSuccess = () => {
+    // 上传成功后，保持当前的查询参数重新获取数据
+    const params = new URLSearchParams(window.location.search);
+    const currentQuery = {
+      class: params.get('class') || undefined,
+      club: params.get('club') || undefined,
+      name: params.get('name') || undefined
+    };
+    setTimeout(() => {
+      fetchData(currentQuery);
+      fetchMeta();
+    }, 200);
+  };
+
   return (
     <Layout>
       <Header style={{ color: '#fff', fontSize: 20, height: '60px' }}>社团人员管理</Header>
       <Content style={{ padding: 24, height: 'calc(100vh - 60px)' }}>
         <Space direction="vertical" size="large" style={{ width: '100%', display: 'flex', flexDirection: 'row',height: '148px' }}>
-          <FileUpload onSuccess={() => { fetchData(); fetchMeta(); }} />
+          <FileUpload onSuccess={handleUploadSuccess} />
           <QueryBar classes={classes} clubs={clubs} onQuery={fetchData} />
           <Space>
             <Button type="primary" onClick={handleExport}>导出 Excel</Button>

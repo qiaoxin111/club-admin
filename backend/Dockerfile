@@ -1,21 +1,34 @@
-FROM node:18-alpine
+FROM docker.1ms.run/node:18-alpine
+
+# Install necessary build tools and dependencies
+RUN apk add --no-cache \
+    curl \
+    python3 \
+    make \
+    g++ \
+    git
+
+# Install pnpm
+RUN curl -f https://get.pnpm.io/v6.16.js | node - add --global pnpm
 
 WORKDIR /app
 
-# 复制package.json和package-lock.json
+# Copy package.json and package-lock.json
 COPY package*.json ./
 
-# 安装依赖
-RUN npm install
+# Install dependencies
+RUN pnpm install
 
-# 复制源代码
+# Copy source code
 COPY . .
 
-# 创建uploads目录
+# Create uploads directory
 RUN mkdir -p uploads
 
-# 暴露端口
-EXPOSE 3001
+# Expose port
+EXPOSE 4000
 
-# 启动应用
+RUN npm rebuild sqlite3
+
+# Start application
 CMD ["npm", "start"]
