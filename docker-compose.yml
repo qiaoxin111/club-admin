@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: club-admin-backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/database.db:/app/database.db
+    environment:
+      - NODE_ENV=production
+    networks:
+      - club-admin-network
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: club-admin-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - club-admin-network
+    restart: unless-stopped
+
+networks:
+  club-admin-network:
+    driver: bridge
+
+volumes:
+  uploads:
+  database:
