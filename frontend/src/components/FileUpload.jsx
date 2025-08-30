@@ -25,8 +25,10 @@ export default function FileUpload({ onSuccess }) {
     },
     beforeUpload(file) {
       const isXlsx = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      if (!isXlsx) message.error('只能上传 .xlsx 文件');
-      return isXlsx;
+      const isXls = file.type === 'application/vnd.ms-excel';
+      const isValidExcel = isXlsx || isXls;
+      if (!isValidExcel) message.error('只能上传 .xlsx 或 .xls 文件');
+      return isValidExcel;
     }
   };
 
@@ -40,7 +42,7 @@ export default function FileUpload({ onSuccess }) {
       <Dragger {...props} disabled={!clubName}>
         <UploadOutlined />
         <p className="ant-upload-drag-icon"></p>
-        <p>点击或拖拽上传 Excel 文件</p>
+        <p>点击或拖拽上传 Excel 文件（支持 .xlsx 和 .xls）</p>
       </Dragger>
     </Space>
   );

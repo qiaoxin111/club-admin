@@ -7,13 +7,13 @@ export default function QueryBar({ classes, clubs, onQuery }) {
   const readQuery = () => {
     const p = new URLSearchParams(window.location.search);
     return {
-      cls:  p.get('class') || undefined,
-      club: p.get('club')  || undefined,
-      name: p.get('name')  || ''
+      cls: p.get('class') || undefined,
+      club: p.get('club') || undefined,
+      name: p.get('name') || ''
     };
   };
 
-  const [cls,  setCls]  = useState(readQuery().cls);
+  const [cls, setCls] = useState(readQuery().cls);
   const [club, setClub] = useState(readQuery().club);
   const [name, setName] = useState(readQuery().name);
 
@@ -34,8 +34,8 @@ export default function QueryBar({ classes, clubs, onQuery }) {
   const updateUrlAndQuery = (newClass, newClub, newName) => {
     const params = new URLSearchParams();
     if (newClass) params.set('class', newClass);
-    if (newClub)  params.set('club',  newClub);
-    if (newName)  params.set('name',  newName);
+    if (newClub) params.set('club', newClub);
+    if (newName) params.set('name', newName);
 
     const url = `${window.location.pathname}?${params}`;
     window.history.replaceState(null, '', url);   // 不刷新页面

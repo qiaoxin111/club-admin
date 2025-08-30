@@ -33,7 +33,17 @@ function App() {
     window.open(`/api/export?${params.toString()}`);
   };
 
-  useEffect(() => { fetchData(); fetchMeta(); }, []);
+  useEffect(() => { 
+    // 页面初始化时从URL读取查询参数
+    const params = new URLSearchParams(window.location.search);
+    const initialQuery = {
+      class: params.get('class') || undefined,
+      club: params.get('club') || undefined,
+      name: params.get('name') || undefined
+    };
+    fetchData(initialQuery); 
+    fetchMeta(); 
+  }, []);
 
   const handleClear = async () => {
     await axios.delete('/api/students');

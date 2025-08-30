@@ -10,7 +10,7 @@ const columns = [
 export default function StudentTable({ data }) {
   return (
     <Table
-    style={{ height: 'calc(100% - 148px)'}}
+    style={{ height: 'calc(100% - 148px)', overflow: 'hidden' }}
       rowKey={(r) => `${r.class}-${r.name}`}
       columns={columns}
       dataSource={data}
