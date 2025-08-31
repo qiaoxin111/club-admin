@@ -16,7 +16,10 @@ export default function StudentTable({ data }) {
         rowKey={(r) => `${r.class}-${r.name}`}
         columns={columns}
         dataSource={data}
-        pagination={{ pageSize: 50 }}
+        pagination={{ 
+          pageSize: 50,
+          showTotal: (total, range) => `共 ${total} 条记录，显示第 ${range[0]}-${range[1]} 条`
+        }}
         scroll={{ y: 'calc(100vh - 60px - 148px - 30px - 32px - 55px)' }}
       />
     </div>

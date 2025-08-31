@@ -12,6 +12,16 @@ db.serialize(() => {
             name TEXT,
             club TEXT
           )`);
+  
+  db.run(`CREATE TABLE IF NOT EXISTS all_students (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            campus TEXT,
+            stage TEXT,
+            grade TEXT,
+            class TEXT,
+            name TEXT,
+            normalized_class TEXT
+          )`);
 });
 
 db.close();

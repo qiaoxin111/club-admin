@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Layout, Button, Space, message } from 'antd';
 import axios from 'axios';
 import FileUpload from './components/FileUpload';
+import AllStudentsUpload from './components/AllStudentsUpload';
 import QueryBar from './components/QueryBar';
 import StudentTable from './components/StudentTable';
 
@@ -71,6 +72,7 @@ function App() {
       <Header style={{ color: '#fff', fontSize: 20, height: '60px' }}>社团人员管理</Header>
       <Content style={{ padding: '24px 24px 6px', height: 'calc(100vh - 60px)' }}>
         <Space direction="vertical" size="large" style={{ width: '100%', display: 'flex', flexDirection: 'row',height: '148px' }}>
+          <AllStudentsUpload onSuccess={handleUploadSuccess} />
           <FileUpload onSuccess={handleUploadSuccess} />
           <QueryBar classes={classes} clubs={clubs} onQuery={fetchData} />
           <Space>
