@@ -18,6 +18,7 @@ export default function FileUpload({ onSuccess }) {
       const { status } = info.file;
       if (status === 'done') {
         message.success(`${info.file.name} 上传成功`);
+        setClubName(''); // 清空社团名称输入框
         onSuccess();
       } else if (status === 'error') {
         message.error(`${info.file.name} 上传失败`);

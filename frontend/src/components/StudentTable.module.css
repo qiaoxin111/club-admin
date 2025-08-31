@@ -1,0 +1,3 @@
+.tableWrapper :global(.ant-table-wrapper .ant-spin-container .ant-pagination) {
+  margin: 4px 0px;
+}

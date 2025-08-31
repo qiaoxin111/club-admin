@@ -57,7 +57,7 @@ app.get('/api/students', (req, res) => {
   if (cls)  { sql += ' AND class=?'; params.push(cls); }
   if (club) { sql += ' AND club=?';  params.push(club); }
   if (name) { sql += ' AND name LIKE ?'; params.push(`%${name}%`); }
-  sql += ' GROUP BY class, name ORDER BY clubs, class, name';
+  sql += ' GROUP BY class, name ORDER BY class, clubs, name';
   db.all(sql, params, (err, rows) => {
     if (err) return res.status(500).send(err);
     res.json(rows.map((r, i) => ({ seq: i + 1, ...r })));
@@ -93,7 +93,7 @@ app.get('/api/export', (req, res) => {
     if (cls)  { sql += ' AND class=?'; params.push(cls); }
     if (club) { sql += ' AND club=?';  params.push(club); }
     if (name) { sql += ' AND name LIKE ?'; params.push(`%${name}%`); }
-    sql += ' GROUP BY class, name ORDER BY clubs, class, name';
+    sql += ' GROUP BY class, name ORDER BY class, clubs, name';
   
     db.all(sql, params, (err, rows) => {
       if (err) return res.status(500).send(err);

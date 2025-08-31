@@ -1,4 +1,5 @@
 import { Table } from 'antd';
+import styles from './StudentTable.module.css';
 
 const columns = [
   { title: '序号', dataIndex: 'seq', width: 80 },
@@ -9,13 +10,15 @@ const columns = [
 
 export default function StudentTable({ data }) {
   return (
-    <Table
-    style={{ height: 'calc(100% - 148px)', overflow: 'hidden' }}
-      rowKey={(r) => `${r.class}-${r.name}`}
-      columns={columns}
-      dataSource={data}
-      pagination={{ pageSize: 50 }}
-      scroll={{ y: 500 }}
-    />
+    <div className={styles.tableWrapper} style={{ height: 'calc(100vh - 60px - 148px - 32px - 30px)' }}>
+      <Table
+        style={{ height: '100%' }}
+        rowKey={(r) => `${r.class}-${r.name}`}
+        columns={columns}
+        dataSource={data}
+        pagination={{ pageSize: 50 }}
+        scroll={{ y: 'calc(100vh - 60px - 148px - 30px - 32px - 55px)' }}
+      />
+    </div>
   );
 }
