@@ -51,16 +51,16 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 /* -------- 查询（含多条件） -------- */
 app.get('/api/students', (req, res) => {
   const { class: cls, club, name } = req.query;
-  let sql = `SELECT class, name, GROUP_CONCAT(DISTINCT club) AS clubs
+  let sql = `SELECT class, name, club
              FROM students WHERE 1=1`;
   const params = [];
   if (cls)  { sql += ' AND class=?'; params.push(cls); }
   if (club) { sql += ' AND club=?';  params.push(club); }
   if (name) { sql += ' AND name LIKE ?'; params.push(`%${name}%`); }
-  sql += ' GROUP BY class, name ORDER BY class, clubs, name';
+  sql += ' ORDER BY class, club, name';
   db.all(sql, params, (err, rows) => {
     if (err) return res.status(500).send(err);
-    res.json(rows.map((r, i) => ({ seq: i + 1, ...r })));
+    res.json(rows.map((r, i) => ({ seq: i + 1, class: r.class, name: r.name, clubs: r.club })));
   });
 });
 
@@ -81,19 +81,35 @@ app.delete('/api/students', (_, res) => {
   });
 });
 
+/* -------- 数据去重（保留最新的社团记录） -------- */
+app.post('/api/students/deduplicate', (_, res) => {
+  db.serialize(() => {
+    // 删除重复记录，只保留每个学生最新的社团记录
+    db.run(`DELETE FROM students 
+            WHERE id NOT IN (
+              SELECT MAX(id) 
+              FROM students 
+              GROUP BY class, name
+            )`, (err) => {
+      if (err) return res.status(500).send(err);
+      res.json({ message: '数据去重完成' });
+    });
+  });
+});
+
 /* -------- 导出 -------- */
 /* ------------ 按当前条件导出 ------------ */
 app.get('/api/export', (req, res) => {
     console.log(1111, req.query);
     const { class: cls, club, name } = req.query;
   
-    let sql = `SELECT class, name, GROUP_CONCAT(DISTINCT club) AS clubs
+    let sql = `SELECT class, name, club
                FROM students WHERE 1=1`;
     const params = [];
     if (cls)  { sql += ' AND class=?'; params.push(cls); }
     if (club) { sql += ' AND club=?';  params.push(club); }
     if (name) { sql += ' AND name LIKE ?'; params.push(`%${name}%`); }
-    sql += ' GROUP BY class, name ORDER BY class, clubs, name';
+    sql += ' ORDER BY class, club, name';
   
     db.all(sql, params, (err, rows) => {
       if (err) return res.status(500).send(err);
@@ -103,7 +119,7 @@ app.get('/api/export', (req, res) => {
         序号: idx + 1,
         班级: r.class,
         姓名: r.name,
-        社团: r.clubs
+        社团: r.club
       }));
   
       const ws = xlsx.utils.json_to_sheet(data);
