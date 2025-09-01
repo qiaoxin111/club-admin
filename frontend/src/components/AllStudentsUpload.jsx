@@ -30,13 +30,15 @@ export default function AllStudentsUpload({ onSuccess }) {
   };
 
   return (
-    <div style={{ width: 200 }}>
+    <div style={{ width: 220,height: 130}}>
       <Dragger {...props}>
         <UploadOutlined />
         <p className="ant-upload-drag-icon"></p>
-        <p>上传所有学生数据表</p>
+        <p>第一步：上传所有学生数据表</p>
         <p style={{ fontSize: '12px', color: '#666' }}>
           格式：校区 | 学段 | 年级 | 班级 | 姓名
+          <br />
+          点击或拖拽上传 Excel 文件（支持 .xlsx 和 .xls）
         </p>
       </Dragger>
     </div>

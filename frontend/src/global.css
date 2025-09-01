@@ -1,0 +1,33 @@
+/* 全局样式覆盖 Ant Design */
+
+/* 覆盖上传组件的图标边距 */
+.ant-upload-wrapper .ant-upload-drag p.ant-upload-drag-icon {
+  margin-bottom: 8px !important;
+}
+.ant-upload-wrapper .ant-upload-drag .ant-upload-btn {
+    padding: 8px !important;
+}
+
+.ant-space-gap-col-large {
+  gap: 12px !important;
+}
+
+
+/* 覆盖上传组件的文字边距 */
+.ant-upload-wrapper .ant-upload-drag p {
+  margin: 4px 0 !important;
+}
+
+/* 覆盖上传组件的内边距 */
+.ant-upload-wrapper .ant-upload-drag {
+  padding: 0px !important;
+}
+
+/* 其他可能需要的样式覆盖 */
+.ant-message {
+  z-index: 9999 !important;
+}
+
+.ant-notification {
+  z-index: 9999 !important;
+}

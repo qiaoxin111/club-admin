@@ -84,15 +84,15 @@ function App() {
   return (
     <Layout>
       <Header style={{ color: '#fff', fontSize: 20, height: '60px' }}>社团人员管理</Header>
-      <Content style={{ padding: '24px 24px 6px', height: 'calc(100vh - 60px)' }}>
-        <Space direction="vertical" size="large" style={{ width: '100%', display: 'flex', flexDirection: 'row',height: '148px' }}>
+      <Content style={{ padding: '12px 12px 6px', height: 'calc(100vh - 60px)' }}>
+        <Space direction="vertical" size="large" style={{ width: '100%', display: 'flex', flexDirection: 'row',height: '140px' }}>
           <AllStudentsUpload onSuccess={handleUploadSuccess} />
           <TeachersUpload onSuccess={handleUploadSuccess} />
           <FileUpload onSuccess={handleUploadSuccess} />
           <QueryBar classes={classes} clubs={clubs} onQuery={fetchData} />
           <Space>
             <Button type="primary" onClick={handleExport}>导出 Excel</Button>
-            <Button danger onClick={handleClear}>清除全部社团学生数据</Button>
+            <Button danger onClick={handleClear}>清除社团学生数据</Button>
           </Space>
           
         </Space>

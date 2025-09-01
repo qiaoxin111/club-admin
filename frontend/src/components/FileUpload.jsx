@@ -98,9 +98,9 @@ export default function FileUpload({ onSuccess }) {
   };
 
   return (
-    <Space direction="vertical" style={{ width: 250 }}>
+    <Space direction="vertical" style={{ width: 220 }}>
       <AutoComplete
-        placeholder="请输入或选择社团名称"
+        placeholder="第三步：输入或选择社团名称"
         value={clubName}
         onChange={handleClubNameChange}
         options={getAutoCompleteOptions()}
@@ -127,12 +127,18 @@ export default function FileUpload({ onSuccess }) {
           style={{ fontSize: '12px' }}
         />
       )}
-      
-      <Dragger {...props} disabled={!clubName}>
-        <UploadOutlined />
-        <p className="ant-upload-drag-icon"></p>
-        <p>点击或拖拽上传 Excel 文件（支持 .xlsx 和 .xls）</p>
-      </Dragger>
+      <div style={{ width: 220, height: 88}}>
+        <Dragger {...props} disabled={!clubName}>
+          <UploadOutlined />
+          <p className="ant-upload-drag-icon"></p>
+          <p style={{ fontSize: '12px' }}>
+            第四步： 上传社团学生表
+            <br/>
+            格式：序列 | 班级 | 姓名
+          </p>
+          
+        </Dragger>
+      </div>
     </Space>
   );
 }

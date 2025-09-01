@@ -31,13 +31,16 @@ export default function TeachersUpload({ onSuccess }) {
   };
 
   return (
-    <div style={{ width: 200 }}>
+    <div style={{ width: 250, height: 130}}>
       <Dragger {...props}>
         <UploadOutlined />
         <p className="ant-upload-drag-icon"></p>
-        <p>上传教师信息表</p>
+        <p>第二步：上传教师信息表</p>
         <p style={{ fontSize: '12px', color: '#666' }}>
-          需包含"社团老师"和"班主任"两个sheet
+          需包含两个sheet：
+          <br />
+          社团老师表-格式：社团 | 地点 | 教师 | 电话
+          班主任表-格式：班级 | 教师 | 电话
         </p>
       </Dragger>
     </div>

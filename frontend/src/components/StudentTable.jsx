@@ -15,7 +15,7 @@ const columns = [
 
 export default function StudentTable({ data }) {
   return (
-    <div className={styles.tableWrapper} style={{ height: 'calc(100vh - 60px - 148px - 32px - 30px)' }}>
+    <div className={styles.tableWrapper} style={{ height: 'calc(100vh - 60px - 140px - 32px - 30px)' }}>
       <Table
         style={{ height: '100%' }}
         rowKey={(r) => `${r.class}-${r.name}`}
@@ -25,7 +25,7 @@ export default function StudentTable({ data }) {
           pageSize: 50,
           showTotal: (total, range) => `共 ${total} 条记录，显示第 ${range[0]}-${range[1]} 条`
         }}
-        scroll={{ y: 'calc(100vh - 60px - 148px - 30px - 32px - 55px)' }}
+        scroll={{ y: 'calc(100vh - 60px - 140px - 30px - 32px - 55px)' }}
       />
     </div>
   );
