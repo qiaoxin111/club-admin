@@ -2,9 +2,9 @@
   "name": "club-frontend",
   "private": true,
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview --host"
   },
   "dependencies": {
     "@ant-design/icons": "^6.0.0",
