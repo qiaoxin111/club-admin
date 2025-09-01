@@ -22,7 +22,7 @@ RUN curl -f https://get.pnpm.io/v6.16.js | node - add --global pnpm
 WORKDIR /app
 
 # Copy package.json and package-lock.json
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
 RUN pnpm install --prod
