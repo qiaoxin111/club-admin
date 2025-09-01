@@ -1,4 +1,6 @@
-FROM docker.1ms.run/node:18-alpine
+FROM docker.1ms.run/node:20
+
+RUN npm config set registry https://registry.npmmirror.com
 
 # Install necessary build tools and dependencies
 RUN apk add --no-cache \
@@ -7,6 +9,12 @@ RUN apk add --no-cache \
     make \
     g++ \
     git
+
+RUN apk add --no-cache \
+    py3-pip \
+    py3-setuptools \
+    py3-wheel \
+    py3-distutils
 
 # Install pnpm
 RUN curl -f https://get.pnpm.io/v6.16.js | node - add --global pnpm
