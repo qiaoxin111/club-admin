@@ -104,19 +104,58 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   const clubName = req.body.clubName || '未知社团';
   const rows = parseExcel(file.path, clubName);
   
-  // 先删除该社团的旧数据，再插入新数据
+  // 先删除该社团的旧数据
   db.run('DELETE FROM students WHERE club = ?', [clubName], (err) => {
     if (err) {
       fs.unlinkSync(file.path);
       return res.status(500).send(err);
     }
     
-    // 插入新数据
-    const stmt = db.prepare('INSERT INTO students (seq, class, name, club) VALUES (?,?,?,?)');
-    rows.forEach(r => stmt.run(r.seq, r.class, r.name, r.club));
-    stmt.finalize();
-    fs.unlinkSync(file.path);
-    res.json({ count: rows.length });
+    // 检查重复学生（在其他社团中）
+    const duplicates = [];
+    let processedCount = 0;
+    
+    if (rows.length === 0) {
+      fs.unlinkSync(file.path);
+      return res.json({ count: 0, duplicates: [] });
+    }
+    
+    rows.forEach((row, index) => {
+      // 检查该学生是否已在其他社团中
+      db.get('SELECT club FROM students WHERE class = ? AND name = ?', [row.class, row.name], (err, existingStudent) => {
+        if (err) {
+          fs.unlinkSync(file.path);
+          return res.status(500).send(err);
+        }
+        
+        if (existingStudent) {
+          // 学生已在其他社团中，记录重复信息
+          duplicates.push({
+            name: row.name,
+            class: row.class,
+            existingClub: existingStudent.club,
+            newClub: clubName
+          });
+        } else {
+          // 学生不在其他社团中，可以插入
+          db.run('INSERT INTO students (seq, class, name, club) VALUES (?,?,?,?)', 
+            [row.seq, row.class, row.name, row.club], (err) => {
+              if (err) console.error('插入数据错误:', err);
+            });
+        }
+        
+        processedCount++;
+        
+        // 所有学生都处理完毕
+        if (processedCount === rows.length) {
+          fs.unlinkSync(file.path);
+          res.json({ 
+            count: rows.length - duplicates.length,
+            duplicates: duplicates 
+          });
+        }
+      });
+    });
   });
 });
 
@@ -287,6 +326,14 @@ app.get('/api/distinct/:field', (req, res) => {
       res.json(rows.map(r => r.val));
     });
   }
+});
+
+/* -------- 获取所有社团教师列表 -------- */
+app.get('/api/club-teachers', (req, res) => {
+  db.all('SELECT club, teacher, location, phone FROM club_teachers ORDER BY club', (err, rows) => {
+    if (err) return res.status(500).send(err);
+    res.json(rows);
+  });
 });
 
 /* -------- 清空 -------- */
