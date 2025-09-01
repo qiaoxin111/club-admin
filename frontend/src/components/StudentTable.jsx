@@ -2,10 +2,15 @@ import { Table } from 'antd';
 import styles from './StudentTable.module.css';
 
 const columns = [
-  { title: '序号', dataIndex: 'seq', width: 80 },
-  { title: '班级', dataIndex: 'class' },
-  { title: '姓名', dataIndex: 'name' },
-  { title: '社团', dataIndex: 'clubs' },
+  { title: '序号', dataIndex: 'seq', width: 60 },
+  { title: '班级', dataIndex: 'class', width: 80 },
+  { title: '姓名', dataIndex: 'name', width: 80 },
+  { title: '社团', dataIndex: 'clubs', width: 100 },
+  { title: '地点', dataIndex: 'clubLocation', width: 100 },
+  { title: '社团教师', dataIndex: 'clubTeacher', width: 80 },
+  { title: '社团教师电话', dataIndex: 'clubTeacherPhone', width: 120 },
+  { title: '班主任', dataIndex: 'classTeacher', width: 80 },
+  { title: '班主任电话', dataIndex: 'classTeacherPhone', width: 120 },
 ];
 
 export default function StudentTable({ data }) {

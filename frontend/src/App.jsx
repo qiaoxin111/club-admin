@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Layout, Button, Space, message } from 'antd';
+import { Layout, Button, Space, message, Modal } from 'antd';
 import axios from 'axios';
 import FileUpload from './components/FileUpload';
 import AllStudentsUpload from './components/AllStudentsUpload';
+import TeachersUpload from './components/TeachersUpload';
 import QueryBar from './components/QueryBar';
 import StudentTable from './components/StudentTable';
 
@@ -46,11 +47,24 @@ function App() {
     fetchMeta(); 
   }, []);
 
-  const handleClear = async () => {
-    await axios.delete('/api/students');
-    message.success('已清空');
-    fetchData();
-    fetchMeta();
+  const handleClear = () => {
+    Modal.confirm({
+      title: '确认清除数据',
+      content: '确定要清除全部社团学生数据吗？此操作不可恢复！',
+      okText: '确认清除',
+      cancelText: '取消',
+      okType: 'danger',
+      onOk: async () => {
+        try {
+          await axios.delete('/api/students');
+          message.success('已清空全部社团学生数据');
+          fetchData();
+          fetchMeta();
+        } catch (error) {
+          message.error('清除失败，请重试');
+        }
+      }
+    });
   };
 
   const handleUploadSuccess = () => {
@@ -73,11 +87,12 @@ function App() {
       <Content style={{ padding: '24px 24px 6px', height: 'calc(100vh - 60px)' }}>
         <Space direction="vertical" size="large" style={{ width: '100%', display: 'flex', flexDirection: 'row',height: '148px' }}>
           <AllStudentsUpload onSuccess={handleUploadSuccess} />
+          <TeachersUpload onSuccess={handleUploadSuccess} />
           <FileUpload onSuccess={handleUploadSuccess} />
           <QueryBar classes={classes} clubs={clubs} onQuery={fetchData} />
           <Space>
             <Button type="primary" onClick={handleExport}>导出 Excel</Button>
-            <Button danger onClick={handleClear}>清除全部数据</Button>
+            <Button danger onClick={handleClear}>清除全部社团学生数据</Button>
           </Space>
           
         </Space>

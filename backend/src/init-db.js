@@ -22,6 +22,21 @@ db.serialize(() => {
             name TEXT,
             normalized_class TEXT
           )`);
+  
+  db.run(`CREATE TABLE IF NOT EXISTS club_teachers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            club TEXT,
+            location TEXT,
+            teacher TEXT,
+            phone TEXT
+          )`);
+  
+  db.run(`CREATE TABLE IF NOT EXISTS class_teachers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            class TEXT,
+            teacher TEXT,
+            phone TEXT
+          )`);
 });
 
 db.close();

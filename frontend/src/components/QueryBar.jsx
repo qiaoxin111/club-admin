@@ -83,7 +83,7 @@ export default function QueryBar({ classes, clubs, onQuery }) {
         style={{ width: 140 }}
         onPressEnter={handleSearch}
       />
-      <Button type="primary" onClick={handleSearch}>查询</Button>
+      {/* <Button type="primary" onClick={handleSearch}>查询</Button> */}
     </Space>
   );
 }

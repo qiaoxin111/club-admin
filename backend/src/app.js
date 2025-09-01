@@ -68,17 +68,56 @@ function parseAllStudentsExcel(filePath) {
     }).filter(r => r.name && r.grade && r.class); // 防止空行和必要字段缺失
   }
 
+/* ---------- 解析教师信息 Excel（包含两个sheet） ---------- */
+function parseTeachersExcel(filePath) {
+    const wb = xlsx.readFile(filePath);
+    
+    // 解析社团老师sheet
+    const clubTeachersSheet = wb.Sheets['社团老师'];
+    const clubTeachersRaw = xlsx.utils.sheet_to_json(clubTeachersSheet, { header: 1, defval: null });
+    const clubTeachersData = clubTeachersRaw.slice(1).map(r => ({
+      club: String(r[0] || ''),
+      location: String(r[1] || ''),
+      teacher: String(r[2] || ''),
+      phone: String(r[3] || '')
+    })).filter(r => r.club && r.teacher);
+    
+    // 解析班主任sheet
+    const classTeachersSheet = wb.Sheets['班主任'];
+    const classTeachersRaw = xlsx.utils.sheet_to_json(classTeachersSheet, { header: 1, defval: null });
+    const classTeachersData = classTeachersRaw.slice(1).map(r => ({
+      class: String(r[0] || ''),
+      teacher: String(r[1] || ''),
+      phone: String(r[2] || '')
+    })).filter(r => r.class && r.teacher);
+    
+    return {
+      clubTeachers: clubTeachersData,
+      classTeachers: classTeachersData
+    };
+  }
+
 /* -------- 上传社团数据 -------- */
 app.post('/api/upload', upload.single('file'), (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).send('文件缺失');
   const clubName = req.body.clubName || '未知社团';
   const rows = parseExcel(file.path, clubName);
-  const stmt = db.prepare('INSERT INTO students (seq, class, name, club) VALUES (?,?,?,?)');
-  rows.forEach(r => stmt.run(r.seq, r.class, r.name, r.club));
-  stmt.finalize();
-  fs.unlinkSync(file.path);
-  res.json({ count: rows.length });
+  
+  // 先删除该社团的旧数据，再插入新数据
+  db.run('DELETE FROM students WHERE club = ?', [clubName], (err) => {
+    if (err) {
+      fs.unlinkSync(file.path);
+      return res.status(500).send(err);
+    }
+    
+    // 插入新数据
+    const stmt = db.prepare('INSERT INTO students (seq, class, name, club) VALUES (?,?,?,?)');
+    rows.forEach(r => stmt.run(r.seq, r.class, r.name, r.club));
+    stmt.finalize();
+    fs.unlinkSync(file.path);
+    res.json({ count: rows.length });
+  });
 });
 
 /* -------- 上传所有学生数据 -------- */
@@ -104,6 +143,41 @@ app.post('/api/upload-all-students', upload.single('file'), (req, res) => {
   });
 });
 
+/* -------- 上传教师信息数据 -------- */
+app.post('/api/upload-teachers', upload.single('file'), (req, res) => {
+  const file = req.file;
+  if (!file) return res.status(400).send('文件缺失');
+  
+  try {
+    const { clubTeachers, classTeachers } = parseTeachersExcel(file.path);
+    
+    db.serialize(() => {
+      // 清空原有数据
+      db.run('DELETE FROM club_teachers');
+      db.run('DELETE FROM class_teachers');
+      
+      // 插入社团老师数据
+      const clubStmt = db.prepare('INSERT INTO club_teachers (club, location, teacher, phone) VALUES (?,?,?,?)');
+      clubTeachers.forEach(r => clubStmt.run(r.club, r.location, r.teacher, r.phone));
+      clubStmt.finalize();
+      
+      // 插入班主任数据
+      const classStmt = db.prepare('INSERT INTO class_teachers (class, teacher, phone) VALUES (?,?,?)');
+      classTeachers.forEach(r => classStmt.run(r.class, r.teacher, r.phone));
+      classStmt.finalize();
+      
+      fs.unlinkSync(file.path);
+      res.json({ 
+        clubTeachersCount: clubTeachers.length,
+        classTeachersCount: classTeachers.length 
+      });
+    });
+  } catch (error) {
+    fs.unlinkSync(file.path);
+    res.status(500).send('Excel文件格式错误或缺少必要的sheet');
+  }
+});
+
 /* -------- 查询（含多条件） -------- */
 app.get('/api/students', (req, res) => {
   const { class: cls, club, name } = req.query;
@@ -114,9 +188,16 @@ app.get('/api/students', (req, res) => {
       SELECT 
         COALESCE(s.class, a.normalized_class) as class,
         COALESCE(s.name, a.name) as name,
-        s.club as club
+        s.club as club,
+        ct.teacher as club_teacher,
+        ct.phone as club_teacher_phone,
+        ct.location as club_location,
+        clt.teacher as class_teacher,
+        clt.phone as class_teacher_phone
       FROM all_students a
       LEFT JOIN students s ON a.normalized_class = s.class AND a.name = s.name
+      LEFT JOIN club_teachers ct ON s.club = ct.club
+      LEFT JOIN class_teachers clt ON a.normalized_class = clt.class
       WHERE a.normalized_class = ?
     `;
     const params = [cls];
@@ -145,20 +226,46 @@ app.get('/api/students', (req, res) => {
         seq: i + 1, 
         class: r.class, 
         name: r.name, 
-        clubs: r.club || '' 
+        clubs: r.club || '',
+        clubTeacher: r.club_teacher || '',
+        clubTeacherPhone: r.club_teacher_phone || '',
+        clubLocation: r.club_location || '',
+        classTeacher: r.class_teacher || '',
+        classTeacherPhone: r.class_teacher_phone || ''
       })));
     });
   } else {
     // 没有班级筛选条件，只查询社团表
-    let sql = `SELECT class, name, club
-               FROM students WHERE 1=1`;
+    let sql = `
+      SELECT 
+        s.class, s.name, s.club,
+        ct.teacher as club_teacher,
+        ct.phone as club_teacher_phone,
+        ct.location as club_location,
+        clt.teacher as class_teacher,
+        clt.phone as class_teacher_phone
+      FROM students s
+      LEFT JOIN club_teachers ct ON s.club = ct.club
+      LEFT JOIN class_teachers clt ON s.class = clt.class
+      WHERE 1=1
+    `;
     const params = [];
-    if (club) { sql += ' AND club=?';  params.push(club); }
-    if (name) { sql += ' AND name LIKE ?'; params.push(`%${name}%`); }
-    sql += ' ORDER BY class, club, name';
+    if (club) { sql += ' AND s.club=?';  params.push(club); }
+    if (name) { sql += ' AND s.name LIKE ?'; params.push(`%${name}%`); }
+    sql += ' ORDER BY s.class, s.club, s.name';
     db.all(sql, params, (err, rows) => {
       if (err) return res.status(500).send(err);
-      res.json(rows.map((r, i) => ({ seq: i + 1, class: r.class, name: r.name, clubs: r.club })));
+      res.json(rows.map((r, i) => ({ 
+        seq: i + 1, 
+        class: r.class, 
+        name: r.name, 
+        clubs: r.club,
+        clubTeacher: r.club_teacher || '',
+        clubTeacherPhone: r.club_teacher_phone || '',
+        clubLocation: r.club_location || '',
+        classTeacher: r.class_teacher || '',
+        classTeacherPhone: r.class_teacher_phone || ''
+      })));
     });
   }
 });
