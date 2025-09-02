@@ -366,32 +366,110 @@ app.get('/api/export', (req, res) => {
     console.log(1111, req.query);
     const { class: cls, club, name } = req.query;
   
-    let sql = `SELECT class, name, club
-               FROM students WHERE 1=1`;
-    const params = [];
-    if (cls)  { sql += ' AND class=?'; params.push(cls); }
-    if (club) { sql += ' AND club=?';  params.push(club); }
-    if (name) { sql += ' AND name LIKE ?'; params.push(`%${name}%`); }
-    sql += ' ORDER BY class, club, name';
-  
-    db.all(sql, params, (err, rows) => {
-      if (err) return res.status(500).send(err);
-  
-      // 再补一个前端需要的序号
-      const data = rows.map((r, idx) => ({
-        序号: idx + 1,
-        班级: r.class,
-        姓名: r.name,
-        社团: r.club
-      }));
-  
-      const ws = xlsx.utils.json_to_sheet(data);
-      const wb = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(wb, ws, 'Students');
-      const buf = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
-      res.setHeader('Content-Disposition', 'attachment; filename=students.xlsx');
-      res.send(buf);
-    });
+    // 如果筛选条件包含班级，则使用与页面显示相同的查询逻辑
+    if (cls) {
+      let sql = `
+        SELECT 
+          COALESCE(s.class, a.normalized_class) as class,
+          COALESCE(s.name, a.name) as name,
+          s.club as club,
+          ct.teacher as club_teacher,
+          ct.phone as club_teacher_phone,
+          ct.location as club_location,
+          clt.teacher as class_teacher,
+          clt.phone as class_teacher_phone
+        FROM all_students a
+        LEFT JOIN students s ON a.normalized_class = s.class AND a.name = s.name
+        LEFT JOIN club_teachers ct ON s.club = ct.club
+        LEFT JOIN class_teachers clt ON a.normalized_class = clt.class
+        WHERE a.normalized_class = ?
+      `;
+      const params = [cls];
+      
+      // 添加姓名筛选条件
+      if (name) {
+        sql += ' AND a.name LIKE ?';
+        params.push(`%${name}%`);
+      }
+      
+      // 添加社团筛选条件
+      if (club) {
+        sql += ' AND s.club = ?';
+        params.push(club);
+      }
+      
+      sql += ` ORDER BY 
+          CASE WHEN s.club IS NULL THEN 1 ELSE 0 END,
+          s.club,
+          a.name
+      `;
+      
+      db.all(sql, params, (err, rows) => {
+        if (err) return res.status(500).send(err);
+    
+        // 导出完整的数据，包括教师信息
+        const data = rows.map((r, idx) => ({
+          序号: idx + 1,
+          班级: r.class,
+          姓名: r.name,
+          社团: r.club || '',
+          地点: r.club_location || '',
+          社团教师: r.club_teacher || '',
+          社团教师电话: r.club_teacher_phone || '',
+          班主任: r.class_teacher || '',
+          班主任电话: r.class_teacher_phone || ''
+        }));
+    
+        const ws = xlsx.utils.json_to_sheet(data);
+        const wb = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(wb, ws, 'Students');
+        const buf = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        res.setHeader('Content-Disposition', 'attachment; filename=students.xlsx');
+        res.send(buf);
+      });
+    } else {
+      // 没有班级筛选条件，只查询社团表（保持原有逻辑）
+      let sql = `
+        SELECT 
+          s.class, s.name, s.club,
+          ct.teacher as club_teacher,
+          ct.phone as club_teacher_phone,
+          ct.location as club_location,
+          clt.teacher as class_teacher,
+          clt.phone as class_teacher_phone
+        FROM students s
+        LEFT JOIN club_teachers ct ON s.club = ct.club
+        LEFT JOIN class_teachers clt ON s.class = clt.class
+        WHERE 1=1
+      `;
+      const params = [];
+      if (club) { sql += ' AND s.club=?';  params.push(club); }
+      if (name) { sql += ' AND s.name LIKE ?'; params.push(`%${name}%`); }
+      sql += ' ORDER BY s.class, s.club, s.name';
+      
+      db.all(sql, params, (err, rows) => {
+        if (err) return res.status(500).send(err);
+    
+        const data = rows.map((r, idx) => ({
+          序号: idx + 1,
+          班级: r.class,
+          姓名: r.name,
+          社团: r.club,
+          地点: r.club_location || '',
+          社团教师: r.club_teacher || '',
+          社团教师电话: r.club_teacher_phone || '',
+          班主任: r.class_teacher || '',
+          班主任电话: r.class_teacher_phone || ''
+        }));
+    
+        const ws = xlsx.utils.json_to_sheet(data);
+        const wb = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(wb, ws, 'Students');
+        const buf = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        res.setHeader('Content-Disposition', 'attachment; filename=students.xlsx');
+        res.send(buf);
+      });
+    }
   });
 
 const PORT = process.env.PORT || 4000;
