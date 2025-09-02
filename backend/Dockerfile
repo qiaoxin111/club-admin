@@ -16,7 +16,7 @@ RUN apk add --no-cache \
     py3-wheel
 
 # Install pnpm
-RUN curl -fsSL https://get.pnpm.io/install.sh | sh -
+RUN RUN npm install -g pnpm
 
 WORKDIR /app
 
