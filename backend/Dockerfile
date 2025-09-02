@@ -13,8 +13,7 @@ RUN apk add --no-cache \
 RUN apk add --no-cache \
     py3-pip \
     py3-setuptools \
-    py3-wheel \
-    py3-distutils
+    py3-wheel
 
 # Install pnpm
 RUN curl -f https://get.pnpm.io/v6.16.js | node - add --global pnpm
