@@ -16,7 +16,7 @@ RUN apk add --no-cache \
     py3-wheel
 
 # Install pnpm
-RUN RUN npm install -g pnpm
+RUN npm install -g pnpm
 
 WORKDIR /app
 
