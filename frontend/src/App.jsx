@@ -88,7 +88,7 @@ function App() {
         <Space direction="vertical" size="large" style={{ width: '100%', display: 'flex', flexDirection: 'row',height: '140px' }}>
           <AllStudentsUpload onSuccess={handleUploadSuccess} />
           <TeachersUpload onSuccess={handleUploadSuccess} />
-          <FileUpload onSuccess={handleUploadSuccess} />
+          <FileUpload onSuccess={handleUploadSuccess} clubs={clubs} />
           <QueryBar classes={classes} clubs={clubs} onQuery={fetchData} />
           <Space>
             <Button type="primary" onClick={handleExport}>导出 Excel</Button>

@@ -5,9 +5,12 @@ import { useState, useEffect } from 'react';
 
 const { Dragger } = Upload;
 
-export default function FileUpload({ onSuccess }) {
+export default function FileUpload({ onSuccess, clubs = [] }) {
   const [clubName, setClubName] = useState('');
   const [clubTeachers, setClubTeachers] = useState([]);
+  
+  // 从props获取社团选项
+  const clubOptions = clubs.map(club => ({ value: club, label: club }));
   const [isValidClub, setIsValidClub] = useState(true);
 
   // 获取社团教师列表
@@ -21,7 +24,7 @@ export default function FileUpload({ onSuccess }) {
       }
     };
     fetchClubTeachers();
-  }, []);
+  }, [clubs]); // 当clubs变化时重新获取教师信息
 
   // 检查社团名称是否有效
   const handleClubNameChange = (value) => {
