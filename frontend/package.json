@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host --port=5173"
   },
   "dependencies": {
     "@ant-design/icons": "^6.0.0",
