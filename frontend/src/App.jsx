@@ -10,6 +10,7 @@ import StudentTable from './components/StudentTable';
 const { Header, Content } = Layout;
 
 function App() {
+  console.log('版本1.2');
   const [data, setData] = useState([]);
   const [classes, setClasses] = useState([]);
   const [clubs, setClubs] = useState([]);

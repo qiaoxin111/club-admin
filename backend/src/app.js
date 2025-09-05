@@ -478,7 +478,6 @@ app.post('/api/students/deduplicate', (_, res) => {
 /* -------- 导出 -------- */
 /* ------------ 按当前条件导出 ------------ */
 app.get('/api/export', (req, res) => {
-    console.log(1111, req.query);
     const { class: cls, club, name } = req.query;
   
     // 如果筛选条件包含班级，则使用与页面显示相同的查询逻辑
@@ -507,10 +506,10 @@ app.get('/api/export', (req, res) => {
         params.push(`%${name}%`);
       }
       
-      // 添加社团筛选条件
+      // 添加社团筛选条件（支持多社团匹配）
       if (club) {
-        sql += ' AND s.club = ?';
-        params.push(club);
+        sql += ' AND (s.club = ? OR s.club LIKE ? OR s.club LIKE ? OR s.club LIKE ?)';
+        params.push(club, `${club},%`, `%,${club}`, `%,${club},%`);
       }
       
       sql += ` ORDER BY 
@@ -591,25 +590,62 @@ app.get('/api/export', (req, res) => {
         WHERE 1=1
       `;
       const params = [];
-      if (club) { sql += ' AND s.club=?';  params.push(club); }
+      if (club) { 
+        sql += ' AND (s.club = ? OR s.club LIKE ? OR s.club LIKE ? OR s.club LIKE ?)';
+        params.push(club, `${club},%`, `%,${club}`, `%,${club},%`);
+      }
       if (name) { sql += ' AND s.name LIKE ?'; params.push(`%${name}%`); }
       sql += ' ORDER BY s.class, s.club, s.name';
       
-      db.all(sql, params, (err, rows) => {
+      db.all(sql, params, async (err, rows) => {
         if (err) return res.status(500).send(err);
-    
-        const data = rows.map((r, idx) => ({
-          序号: idx + 1,
-          班级: r.class,
-          姓名: r.name,
-          社团: r.club,
-          地点: r.club_location || '',
-          社团教师: r.club_teacher || '',
-          社团教师电话: r.club_teacher_phone || '',
-          班主任: r.class_teacher || '',
-          班主任电话: r.class_teacher_phone || ''
-        }));
-    
+        
+        // 处理多社团信息并导出
+        const processRow = async (r, idx) => {
+          if (!r.club) {
+            return {
+              序号: idx + 1,
+              班级: r.class,
+              姓名: r.name,
+              社团: '',
+              地点: '',
+              社团老师: '',
+              社团老师电话: '',
+              班主任: r.class_teacher || '',
+              班主任电话: r.class_teacher_phone || ''
+            };
+          }
+          
+          const clubs = r.club.split(',');
+          const teachers = [];
+          const phones = [];
+          const locations = [];
+          
+          for (const club of clubs) {
+            const teacher = await new Promise((resolve) => {
+              db.get('SELECT teacher, phone, location FROM club_teachers WHERE club = ?', [club], (err, result) => {
+                resolve(result || { teacher: '', phone: '', location: '' });
+              });
+            });
+            teachers.push(teacher.teacher);
+            phones.push(teacher.phone);
+            locations.push(teacher.location);
+          }
+          
+          return {
+            序号: idx + 1,
+            班级: r.class,
+            姓名: r.name,
+            社团: r.club,
+            地点: locations.join(','),
+            社团老师: teachers.join(','),
+            社团老师电话: phones.join(','),
+            班主任: r.class_teacher || '',
+            班主任电话: r.class_teacher_phone || ''
+          };
+        };
+        
+        const data = await Promise.all(rows.map(processRow));
         const ws = xlsx.utils.json_to_sheet(data);
         const wb = xlsx.utils.book_new();
         xlsx.utils.book_append_sheet(wb, ws, 'Students');
