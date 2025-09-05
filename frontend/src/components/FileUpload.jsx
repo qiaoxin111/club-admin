@@ -33,9 +33,16 @@ export default function FileUpload({ onSuccess, clubs = [] }) {
     setIsValidClub(isValid);
   };
 
-  // 获取自动完成选项
+  // 获取自动完成选项（去重）
   const getAutoCompleteOptions = () => {
-    return clubTeachers.map(teacher => ({
+    const uniqueClubs = {};
+    clubTeachers.forEach(teacher => {
+      if (!uniqueClubs[teacher.club]) {
+        uniqueClubs[teacher.club] = teacher;
+      }
+    });
+    
+    return Object.values(uniqueClubs).map(teacher => ({
       value: teacher.club,
       label: (
         <div>

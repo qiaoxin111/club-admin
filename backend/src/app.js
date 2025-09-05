@@ -104,58 +104,104 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   const clubName = req.body.clubName || '未知社团';
   const rows = parseExcel(file.path, clubName);
   
-  // 先删除该社团的旧数据
-  db.run('DELETE FROM students WHERE club = ?', [clubName], (err) => {
+  if (rows.length === 0) {
+    fs.unlinkSync(file.path);
+    return res.json({ count: 0, duplicates: [] });
+  }
+  
+  // 第一步：获取所有现有学生，移除他们在当前社团的记录
+  db.all('SELECT class, name, club FROM students WHERE club LIKE ? OR club LIKE ? OR club LIKE ? OR club = ?', 
+    [`%,${clubName},%`, `${clubName},%`, `%,${clubName}`, clubName], (err, existingStudents) => {
     if (err) {
       fs.unlinkSync(file.path);
       return res.status(500).send(err);
     }
     
-    // 检查重复学生（在其他社团中）
-    const duplicates = [];
-    let processedCount = 0;
+    // 处理现有学生，移除当前社团
+    let updateCount = 0;
+    const totalUpdates = existingStudents.length;
     
-    if (rows.length === 0) {
-      fs.unlinkSync(file.path);
-      return res.json({ count: 0, duplicates: [] });
-    }
+    const processNewStudents = () => {
+      // 第二步：处理新上传的学生
+      let processedCount = 0;
+      let addedCount = 0;
+      const duplicates = [];
+      
+      rows.forEach((row, index) => {
+        // 检查该学生是否已存在
+        db.get('SELECT club FROM students WHERE class = ? AND name = ?', [row.class, row.name], (err, existingStudent) => {
+          if (err) {
+            fs.unlinkSync(file.path);
+            return res.status(500).send(err);
+          }
+          
+          if (existingStudent) {
+            // 学生已存在，添加当前社团到其社团列表
+            const existingClubs = existingStudent.club ? existingStudent.club.split(',').filter(c => c) : [];
+            if (!existingClubs.includes(clubName)) {
+              existingClubs.push(clubName);
+              const newClubs = existingClubs.join(',');
+              db.run('UPDATE students SET club = ? WHERE class = ? AND name = ?', 
+                [newClubs, row.class, row.name], (err) => {
+                  if (err) console.error('更新数据错误:', err);
+                });
+              addedCount++;
+            }
+          } else {
+            // 学生不存在，插入新记录
+            db.run('INSERT INTO students (seq, class, name, club) VALUES (?,?,?,?)', 
+              [row.seq, row.class, row.name, clubName], (err) => {
+                if (err) console.error('插入数据错误:', err);
+              });
+            addedCount++;
+          }
+          
+          processedCount++;
+          
+          // 所有学生都处理完毕
+          if (processedCount === rows.length) {
+            fs.unlinkSync(file.path);
+            res.json({ 
+              count: addedCount,
+              duplicates: duplicates 
+            });
+          }
+        });
+      });
+    };
     
-    rows.forEach((row, index) => {
-      // 检查该学生是否已在其他社团中
-      db.get('SELECT club FROM students WHERE class = ? AND name = ?', [row.class, row.name], (err, existingStudent) => {
-        if (err) {
-          fs.unlinkSync(file.path);
-          return res.status(500).send(err);
-        }
+    if (totalUpdates === 0) {
+      // 没有现有学生需要更新，直接处理新学生
+      processNewStudents();
+    } else {
+      // 更新现有学生，移除当前社团
+      existingStudents.forEach(student => {
+        const clubs = student.club.split(',');
+        const newClubs = clubs.filter(club => club !== clubName);
+        const newClubsStr = newClubs.join(',');
         
-        if (existingStudent) {
-          // 学生已在其他社团中，记录重复信息
-          duplicates.push({
-            name: row.name,
-            class: row.class,
-            existingClub: existingStudent.club,
-            newClub: clubName
+        if (newClubsStr === '') {
+          // 如果移除当前社团后没有其他社团，删除该学生记录
+          db.run('DELETE FROM students WHERE class = ? AND name = ?', [student.class, student.name], (err) => {
+            if (err) console.error('删除数据错误:', err);
+            updateCount++;
+            if (updateCount === totalUpdates) {
+              processNewStudents();
+            }
           });
         } else {
-          // 学生不在其他社团中，可以插入
-          db.run('INSERT INTO students (seq, class, name, club) VALUES (?,?,?,?)', 
-            [row.seq, row.class, row.name, row.club], (err) => {
-              if (err) console.error('插入数据错误:', err);
+          // 更新学生的社团列表
+          db.run('UPDATE students SET club = ? WHERE class = ? AND name = ?', 
+            [newClubsStr, student.class, student.name], (err) => {
+              if (err) console.error('更新数据错误:', err);
+              updateCount++;
+              if (updateCount === totalUpdates) {
+                processNewStudents();
+              }
             });
         }
-        
-        processedCount++;
-        
-        // 所有学生都处理完毕
-        if (processedCount === rows.length) {
-          fs.unlinkSync(file.path);
-          res.json({ 
-            count: rows.length - duplicates.length,
-            duplicates: duplicates 
-          });
-        }
       });
-    });
+    }
   });
 });
 
@@ -221,6 +267,43 @@ app.post('/api/upload-teachers', upload.single('file'), (req, res) => {
 app.get('/api/students', (req, res) => {
   const { class: cls, club, name } = req.query;
   
+  // 处理多社团信息的函数
+  const processMultiClubInfo = (clubsStr) => {
+    if (!clubsStr) return { clubs: '', teachers: '', phones: '', locations: '' };
+    
+    const clubs = clubsStr.split(',');
+    const teachers = [];
+    const phones = [];
+    const locations = [];
+    
+    // 为每个社团查找对应的教师信息
+    return new Promise((resolve) => {
+      let processed = 0;
+      clubs.forEach(club => {
+        db.get('SELECT teacher, phone, location FROM club_teachers WHERE club = ?', [club], (err, teacher) => {
+          if (teacher) {
+            teachers.push(teacher.teacher);
+            phones.push(teacher.phone);
+            locations.push(teacher.location);
+          } else {
+            teachers.push('');
+            phones.push('');
+            locations.push('');
+          }
+          processed++;
+          if (processed === clubs.length) {
+            resolve({
+              clubs: clubsStr,
+              teachers: teachers.join(','),
+              phones: phones.join(','),
+              locations: locations.join(',')
+            });
+          }
+        });
+      });
+    });
+  };
+  
   // 如果筛选条件包含班级（不管是否有其他条件），则从所有学生表查询
   if (cls) {
     let sql = `
@@ -228,14 +311,10 @@ app.get('/api/students', (req, res) => {
         COALESCE(s.class, a.normalized_class) as class,
         COALESCE(s.name, a.name) as name,
         s.club as club,
-        ct.teacher as club_teacher,
-        ct.phone as club_teacher_phone,
-        ct.location as club_location,
         clt.teacher as class_teacher,
         clt.phone as class_teacher_phone
       FROM all_students a
       LEFT JOIN students s ON a.normalized_class = s.class AND a.name = s.name
-      LEFT JOIN club_teachers ct ON s.club = ct.club
       LEFT JOIN class_teachers clt ON a.normalized_class = clt.class
       WHERE a.normalized_class = ?
     `;
@@ -249,8 +328,8 @@ app.get('/api/students', (req, res) => {
     
     // 添加社团筛选条件
     if (club) {
-      sql += ' AND s.club = ?';
-      params.push(club);
+      sql += ' AND (s.club = ? OR s.club LIKE ? OR s.club LIKE ? OR s.club LIKE ?)';
+      params.push(club, `${club},%`, `%,${club}`, `%,${club},%`);
     }
     
     sql += ` ORDER BY 
@@ -259,52 +338,66 @@ app.get('/api/students', (req, res) => {
         a.name
     `;
     
-    db.all(sql, params, (err, rows) => {
+    db.all(sql, params, async (err, rows) => {
       if (err) return res.status(500).send(err);
-      res.json(rows.map((r, i) => ({ 
-        seq: i + 1, 
-        class: r.class, 
-        name: r.name, 
-        clubs: r.club || '',
-        clubTeacher: r.club_teacher || '',
-        clubTeacherPhone: r.club_teacher_phone || '',
-        clubLocation: r.club_location || '',
-        classTeacher: r.class_teacher || '',
-        classTeacherPhone: r.class_teacher_phone || ''
-      })));
+      
+      const results = [];
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const clubInfo = await processMultiClubInfo(r.club);
+        results.push({ 
+          seq: i + 1, 
+          class: r.class, 
+          name: r.name, 
+          clubs: clubInfo.clubs,
+          clubTeacher: clubInfo.teachers,
+          clubTeacherPhone: clubInfo.phones,
+          clubLocation: clubInfo.locations,
+          classTeacher: r.class_teacher || '',
+          classTeacherPhone: r.class_teacher_phone || ''
+        });
+      }
+      res.json(results);
     });
   } else {
     // 没有班级筛选条件，只查询社团表
     let sql = `
       SELECT 
         s.class, s.name, s.club,
-        ct.teacher as club_teacher,
-        ct.phone as club_teacher_phone,
-        ct.location as club_location,
         clt.teacher as class_teacher,
         clt.phone as class_teacher_phone
       FROM students s
-      LEFT JOIN club_teachers ct ON s.club = ct.club
       LEFT JOIN class_teachers clt ON s.class = clt.class
       WHERE 1=1
     `;
     const params = [];
-    if (club) { sql += ' AND s.club=?';  params.push(club); }
+    if (club) { 
+      sql += ' AND (s.club = ? OR s.club LIKE ? OR s.club LIKE ? OR s.club LIKE ?)';
+      params.push(club, `${club},%`, `%,${club}`, `%,${club},%`);
+    }
     if (name) { sql += ' AND s.name LIKE ?'; params.push(`%${name}%`); }
     sql += ' ORDER BY s.class, s.club, s.name';
-    db.all(sql, params, (err, rows) => {
+    
+    db.all(sql, params, async (err, rows) => {
       if (err) return res.status(500).send(err);
-      res.json(rows.map((r, i) => ({ 
-        seq: i + 1, 
-        class: r.class, 
-        name: r.name, 
-        clubs: r.club,
-        clubTeacher: r.club_teacher || '',
-        clubTeacherPhone: r.club_teacher_phone || '',
-        clubLocation: r.club_location || '',
-        classTeacher: r.class_teacher || '',
-        classTeacherPhone: r.class_teacher_phone || ''
-      })));
+      
+      const results = [];
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const clubInfo = await processMultiClubInfo(r.club);
+        results.push({ 
+          seq: i + 1, 
+          class: r.class, 
+          name: r.name, 
+          clubs: clubInfo.clubs,
+          clubTeacher: clubInfo.teachers,
+          clubTeacherPhone: clubInfo.phones,
+          clubLocation: clubInfo.locations,
+          classTeacher: r.class_teacher || '',
+          classTeacherPhone: r.class_teacher_phone || ''
+        });
+      }
+      res.json(results);
     });
   }
 });
@@ -319,8 +412,30 @@ app.get('/api/distinct/:field', (req, res) => {
       if (err) return res.status(500).send(err);
       res.json(rows.map(r => r.val));
     });
+  } else if (field === 'club') {
+    // 社团选项从已有学生数据的社团中获取（拆分组合社团名称）
+    db.all(`SELECT DISTINCT club FROM students WHERE club IS NOT NULL`, (err, rows) => {
+      if (err) return res.status(500).send(err);
+      
+      // 拆分组合的社团名称并去重
+      const clubSet = new Set();
+      rows.forEach(row => {
+        if (row.club) {
+          const clubs = row.club.split(',');
+          clubs.forEach(club => {
+            if (club.trim()) {
+              clubSet.add(club.trim());
+            }
+          });
+        }
+      });
+      
+      // 转换为数组并排序
+      const uniqueClubs = Array.from(clubSet).sort();
+      res.json(uniqueClubs);
+    });
   } else {
-    // 社团选项仍从社团表获取
+    // 其他字段从学生表获取
     db.all(`SELECT DISTINCT ${field} AS val FROM students ORDER BY val`, (err, rows) => {
       if (err) return res.status(500).send(err);
       res.json(rows.map(r => r.val));
@@ -404,22 +519,55 @@ app.get('/api/export', (req, res) => {
           a.name
       `;
       
-      db.all(sql, params, (err, rows) => {
+      db.all(sql, params, async (err, rows) => {
         if (err) return res.status(500).send(err);
     
-        // 导出完整的数据，包括教师信息
-        const data = rows.map((r, idx) => ({
-          序号: idx + 1,
-          班级: r.class,
-          姓名: r.name,
-          社团: r.club || '',
-          地点: r.club_location || '',
-          社团教师: r.club_teacher || '',
-          社团教师电话: r.club_teacher_phone || '',
-          班主任: r.class_teacher || '',
-          班主任电话: r.class_teacher_phone || ''
-        }));
-    
+        // 处理多社团信息并导出
+        const processRow = async (r, idx) => {
+          if (!r.club) {
+            return {
+              序号: idx + 1,
+              班级: r.class,
+              姓名: r.name,
+              社团: '',
+              地点: '',
+              社团老师: '',
+              社团老师电话: '',
+              班主任: r.class_teacher || '',
+              班主任电话: r.class_teacher_phone || ''
+            };
+          }
+          
+          const clubs = r.club.split(',');
+          const teachers = [];
+          const phones = [];
+          const locations = [];
+          
+          for (const club of clubs) {
+            const teacher = await new Promise((resolve) => {
+              db.get('SELECT teacher, phone, location FROM club_teachers WHERE club = ?', [club], (err, result) => {
+                resolve(result || { teacher: '', phone: '', location: '' });
+              });
+            });
+            teachers.push(teacher.teacher);
+            phones.push(teacher.phone);
+            locations.push(teacher.location);
+          }
+          
+          return {
+            序号: idx + 1,
+            班级: r.class,
+            姓名: r.name,
+            社团: r.club,
+            地点: locations.join(','),
+            社团老师: teachers.join(','),
+            社团老师电话: phones.join(','),
+            班主任: r.class_teacher || '',
+            班主任电话: r.class_teacher_phone || ''
+          };
+        };
+        
+        const data = await Promise.all(rows.map(processRow));
         const ws = xlsx.utils.json_to_sheet(data);
         const wb = xlsx.utils.book_new();
         xlsx.utils.book_append_sheet(wb, ws, 'Students');
